@@ -85,8 +85,8 @@ Project documentation will be maintained directly in the repository.
 - [`PROJECT.md`](PROJECT.md) — product vision, goals, constraints, and principles
 - [`AGENTS.md`](AGENTS.md) — AI-assisted development and learning guidelines
 - [`ROADMAP.md`](ROADMAP.md) — development milestones and project direction
-- `ARCHITECTURE.md` — current system architecture _(coming soon)_
-- `docs/adr/` — Architecture Decision Records _(coming soon)_
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — current system architecture
+- [`docs/adr/`](docs/adr) — Architecture Decision Records
 
 ## Development
 
