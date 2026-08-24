@@ -1,88 +1,24 @@
-use serde::Deserialize;
+use aincrad_launcher::minecraft_version_manifest::parse_minecraft_version_manifest;
+use aincrad_launcher::minecraft_version_manifest_fetcher::ReqwestMinecraftManifestTextFetcher;
+use reqwest::blocking::Client;
+use std::time::Duration;
 
-#[derive(Deserialize)]
-struct LatestMinecraftVersions {
-    #[serde(rename = "release")]
-    release_id: String,
-    #[serde(rename = "snapshot")]
-    snapshot_id: String,
-}
+const MINECRAFT_MANIFEST_URL: &str =
+    "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
 
-#[derive(Deserialize)]
-struct MinecraftVersionManifest {
-    latest: LatestMinecraftVersions,
-}
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let http_client = Client::builder().timeout(Duration::from_secs(10)).build()?;
 
-fn parse_minecraft_version_manifest(
-    manifest_json: &str,
-) -> Result<MinecraftVersionManifest, serde_json::Error> {
-    serde_json::from_str(manifest_json)
-}
+    let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
 
-fn main() {
-    let manifest_json: &str = r#"
-    {
-        "latest": {
-            "release": "26.2",
-            "snapshot": "26.3-snapshot-9"
-        },
-        "versions": []
+    let manifest_json = manifest_text_fetcher.fetch_manifest_text(MINECRAFT_MANIFEST_URL)?;
+
+    let manifest = parse_minecraft_version_manifest(&manifest_json)?;
+    for minecraft_version in &manifest.versions {
+        println!(
+            "{} {}",
+            minecraft_version.id, minecraft_version.version_type
+        );
     }
-    "#;
-
-    let manifest_result = parse_minecraft_version_manifest(manifest_json);
-
-    let manifest = match manifest_result {
-        Ok(parsed_manifest) => parsed_manifest,
-        Err(parse_error) => {
-            eprintln!(
-                "Failed to parse Minecraft version manifest from JSON `{}`: {}",
-                manifest_json, parse_error
-            );
-            return;
-        }
-    };
-
-    println!("Latest release: {}", manifest.latest.release_id);
-    println!("Latest snapshot: {}", manifest.latest.snapshot_id);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_minecraft_manifest_versions_from_valid_json() {
-        let manifest_json = r#"
-        {
-            "latest": {
-                "release": "26.2",
-                "snapshot": "26.3-snapshot-9"
-            },
-            "versions": []
-        }
-        "#;
-
-        let manifest = parse_minecraft_version_manifest(manifest_json)
-            .expect("valid Minecraft version manifest JSON should parse");
-
-        assert_eq!(manifest.latest.release_id, "26.2");
-        assert_eq!(manifest.latest.snapshot_id, "26.3-snapshot-9");
-    }
-
-    #[test]
-    fn rejects_minecraft_manifest_without_snapshot() {
-        let manifest_json = r#"
-        {
-            "latest": {
-                "release": "26.2"
-            },
-            "versions": []
-        }
-        "#;
-
-        let parse_manifest = parse_minecraft_version_manifest(manifest_json);
-
-        assert!(parse_manifest.is_err());
-    }
+    Ok(())
 }

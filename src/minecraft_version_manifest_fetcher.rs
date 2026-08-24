@@ -1,0 +1,116 @@
+use reqwest::blocking::Client;
+
+pub struct ReqwestMinecraftManifestTextFetcher {
+    http_client: Client,
+}
+
+impl ReqwestMinecraftManifestTextFetcher {
+    /// Fetches the Minecraft version manifest response body as text.
+    ///
+    /// Returns an error when the request fails, the server returns an unsuccessful
+    /// HTTP status, or the response body cannot be read as text.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use aincrad_launcher::minecraft_version_manifest_fetcher::ReqwestMinecraftManifestTextFetcher;
+    /// use reqwest::blocking::Client;
+    ///
+    /// let http_client = Client::new();
+    /// let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+    ///
+    /// let manifest_json = manifest_text_fetcher.fetch_manifest_text(
+    ///     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+    /// )?;
+    ///
+    /// assert!(!manifest_json.is_empty());
+    /// # Ok::<(), reqwest::Error>(())
+    /// ```
+    pub fn fetch_manifest_text(&self, manifest_url: &str) -> Result<String, reqwest::Error> {
+        let response = self
+            .http_client
+            .get(manifest_url)
+            .send()?
+            .error_for_status()?;
+
+        let manifest_json = response.text()?;
+        Ok(manifest_json)
+    }
+
+    /// Creates a Minecraft manifest text fetcher that owns the provided HTTP client.
+    ///
+    /// The client can be configured with timeouts, proxy settings, or default headers
+    /// before being passed to the fetcher.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use aincrad_launcher::minecraft_version_manifest_fetcher::ReqwestMinecraftManifestTextFetcher;
+    /// use reqwest::blocking::Client;
+    ///
+    /// let http_client = Client::new();
+    /// let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+    /// ```
+    pub fn new(http_client: Client) -> Self {
+        Self { http_client }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE_MANIFEST_JSON: &str = r#"
+    {
+        "latest": {
+            "release": "26.2",
+            "snapshot": "26.3-snapshot-9"
+        },
+        "versions": [
+            {
+                "id": "26.2",
+                "type": "release",
+                "url": "https://example.invalid/26.2.json"
+            }
+        ]
+    }
+    "#;
+
+    #[test]
+    fn fetches_minecraft_manifest_text_from_successful_http_response() {
+        let mut server = mockito::Server::new();
+        let manifest_mock = server
+            .mock("GET", "/version_manifest_v2.json")
+            .with_status(200)
+            .with_body(SAMPLE_MANIFEST_JSON)
+            .create();
+        let http_client = Client::new();
+        let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+        let manifest_url = format!("{}/version_manifest_v2.json", server.url());
+        let manifest_json = manifest_text_fetcher
+            .fetch_manifest_text(&manifest_url)
+            .expect("fake Minecraft request should return its response body.");
+        assert_eq!(manifest_json, SAMPLE_MANIFEST_JSON);
+        manifest_mock.assert();
+    }
+
+    #[test]
+    fn returns_error_for_unsuccessful_minecraft_manifest_response() {
+        let mut server = mockito::Server::new();
+        let manifest_mock = server
+            .mock("GET", "/version_manifest_v2.json")
+            .with_status(500)
+            .create();
+        let http_client = Client::new();
+        let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+        let manifest_url = format!("{}/version_manifest_v2.json", server.url());
+        let manifest_fetch_result = manifest_text_fetcher.fetch_manifest_text(&manifest_url);
+        let fetch_error = manifest_fetch_result
+            .expect_err("fake Minecraft request should return internal server error!");
+        assert_eq!(
+            fetch_error.status(),
+            Some(reqwest::StatusCode::INTERNAL_SERVER_ERROR)
+        );
+        manifest_mock.assert();
+    }
+}
