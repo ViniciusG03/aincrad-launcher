@@ -23,6 +23,9 @@ pub struct MinecraftVersionSummary {
 
     #[serde(rename = "url")]
     pub metadata_url: String,
+
+    #[serde(rename = "sha1")]
+    pub metadata_sha1: String,
 }
 
 /// Parses Minecraft version manifest JSON without performing network I/O.
@@ -53,7 +56,8 @@ mod tests {
                 {
                     "id": "26.2",
                     "type": "release",
-                    "url": "https://example.invalid/26.2.json"
+                    "url": "https://example.invalid/26.2.json",
+                    "sha1": "46fb31ca7e74aea93545df8f1aa14b9d670097d3"
                 }
             ]
         }
@@ -76,7 +80,8 @@ mod tests {
                 {
                     "id": "26.2",
                     "type": "release",
-                    "url": "https://example.invalid/26.2.json"
+                    "url": "https://example.invalid/26.2.json",
+                    "sha1": "46fb31ca7e74aea93545df8f1aa14b9d670097d3"
                 }
             ]
         }
@@ -98,6 +103,10 @@ mod tests {
             minecraft_version.metadata_url,
             "https://example.invalid/26.2.json"
         );
+        assert_eq!(
+            minecraft_version.metadata_sha1,
+            "46fb31ca7e74aea93545df8f1aa14b9d670097d3"
+        );
     }
 
     #[test]
@@ -114,5 +123,35 @@ mod tests {
         let manifest_result = parse_minecraft_version_manifest(manifest_json);
 
         assert!(manifest_result.is_err());
+    }
+
+    #[test]
+    fn rejects_minecraft_version_without_metadata_sha1() {
+        let manifest_json = r#"
+        {
+            "latest": {
+                "release": "26.2",
+                "snapshot": "26.3-snapshot-9"
+            },
+            "versions": [
+                {
+                    "id": "26.2",
+                    "type": "release",
+                    "url": "https://example.invalid/26.2.json"
+                }
+            ]
+        }
+        "#;
+
+        let manifest_result = parse_minecraft_version_manifest(manifest_json);
+
+        let parse_error = manifest_result
+            .err()
+            .expect("manifest version without metadata sha1 should fail to parse");
+
+        assert!(
+            parse_error.to_string().contains("missing field `sha1`"),
+            "expected missing sha1 error, got: {parse_error}"
+        );
     }
 }
