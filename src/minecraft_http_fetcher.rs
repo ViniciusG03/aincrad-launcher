@@ -1,11 +1,11 @@
 use reqwest::blocking::Client;
 
-pub struct ReqwestMinecraftManifestTextFetcher {
+pub struct ReqwestMinecraftHttpFetcher {
     http_client: Client,
 }
 
-impl ReqwestMinecraftManifestTextFetcher {
-    /// Fetches the Minecraft version manifest response body as text.
+impl ReqwestMinecraftHttpFetcher {
+    /// Fetches the Minecraft HTTP resource response body as text.
     ///
     /// Returns an error when the request fails, the server returns an unsuccessful
     /// HTTP status, or the response body cannot be read as text.
@@ -13,31 +13,31 @@ impl ReqwestMinecraftManifestTextFetcher {
     /// # Example
     ///
     /// ```no_run
-    /// use aincrad_launcher::minecraft_version_manifest_fetcher::ReqwestMinecraftManifestTextFetcher;
+    /// use aincrad_launcher::minecraft_http_fetcher::ReqwestMinecraftHttpFetcher;
     /// use reqwest::blocking::Client;
     ///
     /// let http_client = Client::new();
-    /// let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+    /// let minecraft_http_fetcher = ReqwestMinecraftHttpFetcher::new(http_client);
     ///
-    /// let manifest_json = manifest_text_fetcher.fetch_manifest_text(
+    /// let manifest_json = minecraft_http_fetcher.fetch_text(
     ///     "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
     /// )?;
     ///
     /// assert!(!manifest_json.is_empty());
     /// # Ok::<(), reqwest::Error>(())
     /// ```
-    pub fn fetch_manifest_text(&self, manifest_url: &str) -> Result<String, reqwest::Error> {
+    pub fn fetch_text(&self, resource_url: &str) -> Result<String, reqwest::Error> {
         let response = self
             .http_client
-            .get(manifest_url)
+            .get(resource_url)
             .send()?
             .error_for_status()?;
 
-        let manifest_json = response.text()?;
-        Ok(manifest_json)
+        let response_text = response.text()?;
+        Ok(response_text)
     }
 
-    /// Creates a Minecraft manifest text fetcher that owns the provided HTTP client.
+    /// Creates a Minecraft HTTP fetcher that owns the provided HTTP client.
     ///
     /// The client can be configured with timeouts, proxy settings, or default headers
     /// before being passed to the fetcher.
@@ -45,11 +45,11 @@ impl ReqwestMinecraftManifestTextFetcher {
     /// # Example
     ///
     /// ```
-    /// use aincrad_launcher::minecraft_version_manifest_fetcher::ReqwestMinecraftManifestTextFetcher;
+    /// use aincrad_launcher::minecraft_http_fetcher::ReqwestMinecraftHttpFetcher;
     /// use reqwest::blocking::Client;
     ///
     /// let http_client = Client::new();
-    /// let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+    /// let minecraft_http_fetcher = ReqwestMinecraftHttpFetcher::new(http_client);
     /// ```
     pub fn new(http_client: Client) -> Self {
         Self { http_client }
@@ -85,10 +85,10 @@ mod tests {
             .with_body(SAMPLE_MANIFEST_JSON)
             .create();
         let http_client = Client::new();
-        let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+        let minecraft_http_fetcher = ReqwestMinecraftHttpFetcher::new(http_client);
         let manifest_url = format!("{}/version_manifest_v2.json", server.url());
-        let manifest_json = manifest_text_fetcher
-            .fetch_manifest_text(&manifest_url)
+        let manifest_json = minecraft_http_fetcher
+            .fetch_text(&manifest_url)
             .expect("fake Minecraft request should return its response body.");
         assert_eq!(manifest_json, SAMPLE_MANIFEST_JSON);
         manifest_mock.assert();
@@ -102,9 +102,9 @@ mod tests {
             .with_status(500)
             .create();
         let http_client = Client::new();
-        let manifest_text_fetcher = ReqwestMinecraftManifestTextFetcher::new(http_client);
+        let minecraft_http_fetcher = ReqwestMinecraftHttpFetcher::new(http_client);
         let manifest_url = format!("{}/version_manifest_v2.json", server.url());
-        let manifest_fetch_result = manifest_text_fetcher.fetch_manifest_text(&manifest_url);
+        let manifest_fetch_result = minecraft_http_fetcher.fetch_text(&manifest_url);
         let fetch_error = manifest_fetch_result
             .expect_err("fake Minecraft request should return internal server error!");
         assert_eq!(
