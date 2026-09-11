@@ -6,6 +6,8 @@ pub struct MinecraftVersionMetadata {
     #[serde(rename = "type")]
     pub version_type: String,
     pub downloads: MinecraftVersionDownloads,
+    #[serde(rename = "assetIndex")]
+    pub asset_index: MinecraftAssetIndex,
 }
 
 #[derive(Deserialize)]
@@ -17,6 +19,16 @@ pub struct MinecraftVersionDownloads {
 pub struct MinecraftClientDownload {
     pub sha1: String,
     pub size: u64,
+    pub url: String,
+}
+
+#[derive(Deserialize)]
+pub struct MinecraftAssetIndex {
+    pub id: String,
+    pub sha1: String,
+    pub size: u64,
+    #[serde(rename = "totalSize")]
+    pub total_size: u64,
     pub url: String,
 }
 
@@ -70,7 +82,14 @@ mod tests {
                     "url": "https://example.invalid/client.jar"
                 }
             },
-            "libraries": []
+            "libraries": [],
+            "assetIndex": {
+                "id": "34",
+                "sha1": "abcdef0123456789abcdef0123456789abcdef01",
+                "size": 1234,
+                "totalSize": 5678,
+                "url": "https://example.invalid/assets.json"
+            }
         }
         "#;
 
@@ -91,6 +110,17 @@ mod tests {
             minecraft_version_metadata.downloads.client.url,
             "https://example.invalid/client.jar"
         );
+        assert_eq!(minecraft_version_metadata.asset_index.id, "34");
+        assert_eq!(
+            minecraft_version_metadata.asset_index.sha1,
+            "abcdef0123456789abcdef0123456789abcdef01"
+        );
+        assert_eq!(minecraft_version_metadata.asset_index.size, 1234);
+        assert_eq!(minecraft_version_metadata.asset_index.total_size, 5678);
+        assert_eq!(
+            minecraft_version_metadata.asset_index.url,
+            "https://example.invalid/assets.json"
+        );
     }
 
     #[test]
@@ -106,6 +136,38 @@ mod tests {
             parse_error.to_string().contains("missing field `id`"),
             "expected missing id error, got: {parse_error}"
         );
+    }
+
+    #[test]
+    fn rejects_minecraft_version_metadata_without_asset_index() {
+        let metadata_json = r#"
+        {
+            "id": "26.2",
+            "type": "release",
+            "mainClass": "net.minecraft.client.main.Main",
+            "downloads": {
+                "client": {
+                    "sha1": "0123456789abcdef0123456789abcdef01234567",
+                    "size": 123456,
+                    "url": "https://example.invalid/client.jar"
+                }
+            },
+            "libraries": []
+        }
+        "#;
+
+        let minecraft_version_metadata = parse_minecraft_version_metadata(metadata_json);
+
+        let parse_error = minecraft_version_metadata
+            .err()
+            .expect("metadata version without asset index should fail to parse");
+
+        assert!(
+            parse_error
+                .to_string()
+                .contains("missing field `assetIndex`"),
+            "expected missing asset index error, got: {parse_error}"
+        )
     }
 
     #[test]
