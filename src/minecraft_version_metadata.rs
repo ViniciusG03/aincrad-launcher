@@ -8,6 +8,7 @@ pub struct MinecraftVersionMetadata {
     pub downloads: MinecraftVersionDownloads,
     #[serde(rename = "assetIndex")]
     pub asset_index: MinecraftAssetIndex,
+    pub libraries: Vec<MinecraftLibrary>,
 }
 
 #[derive(Deserialize)]
@@ -30,6 +31,11 @@ pub struct MinecraftAssetIndex {
     #[serde(rename = "totalSize")]
     pub total_size: u64,
     pub url: String,
+}
+
+#[derive(Deserialize)]
+pub struct MinecraftLibrary {
+    pub name: String,
 }
 
 /// Parses Minecraft metadata JSON without performing network I/O.
@@ -61,7 +67,19 @@ mod tests {
                     "url": "https://example.invalid/client.jar"
                 }
             },
-            "libraries": [],
+            "libraries": [
+                {
+                    "downloads": {
+                        "artifact": {
+                        "path": "at/yawk/lz4/lz4-java/1.10.1/lz4-java-1.10.1.jar",
+                        "sha1": "f541d7f910fe3d76f38f799c507c48cc81b12ecb",
+                        "size": 910232,
+                        "url": "https://libraries.minecraft.net/at/yawk/lz4/lz4-java/1.10.1/lz4-java-1.10.1.jar"
+                        }
+                    },
+                    "name": "at.yawk.lz4:lz4-java:1.10.1"
+                    }
+            ],
             "assetIndex": {
                 "id": "34",
                 "sha1": "abcdef0123456789abcdef0123456789abcdef01",
@@ -121,6 +139,11 @@ mod tests {
             minecraft_version_metadata.asset_index.url,
             "https://example.invalid/assets.json"
         );
+        assert_eq!(minecraft_version_metadata.libraries.len(), 1);
+        assert_eq!(
+            minecraft_version_metadata.libraries[0].name,
+            "at.yawk.lz4:lz4-java:1.10.1"
+        );
     }
 
     #[test]
@@ -167,6 +190,44 @@ mod tests {
                 .to_string()
                 .contains("missing field `assetIndex`"),
             "expected missing asset index error, got: {parse_error}"
+        )
+    }
+
+    #[test]
+    fn rejects_minecraft_version_metadata_without_libraries() {
+        let metadata_json = r#"
+         {
+            "id": "26.2",
+            "type": "release",
+            "mainClass": "net.minecraft.client.main.Main",
+            "downloads": {
+                "client": {
+                    "sha1": "0123456789abcdef0123456789abcdef01234567",
+                    "size": 123456,
+                    "url": "https://example.invalid/client.jar"
+                }
+            },
+            "assetIndex": {
+                "id": "34",
+                "sha1": "abcdef0123456789abcdef0123456789abcdef01",
+                "size": 1234,
+                "totalSize": 5678,
+                "url": "https://example.invalid/assets.json"
+            }
+        }
+        "#;
+
+        let minecraft_version_metadata = parse_minecraft_version_metadata(metadata_json);
+
+        let parse_error = minecraft_version_metadata
+            .err()
+            .expect("metadata version without libraries should fail to parse");
+
+        assert!(
+            parse_error
+                .to_string()
+                .contains("missing field `libraries`"),
+            "expected missing libraries error, got: {parse_error}"
         )
     }
 
